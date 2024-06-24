@@ -10,6 +10,8 @@ import org.springframework.http.HttpMethod;
 import org.springframework.integration.dsl.IntegrationFlow;
 import org.springframework.integration.handler.LoggingHandler;
 import org.springframework.integration.webflux.dsl.WebFlux;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.support.ExecutorSubscribableChannel;
 import org.springframework.web.reactive.function.client.WebClient;
 
 @Configuration
@@ -25,10 +27,18 @@ public class RestoreReactorContextFlowConfig {
 							.enrichHeaders(hdrSpec -> hdrSpec.headerFunction("INPUT_GREETING", m -> m.getPayload()))
 							.log(LoggingHandler.Level.INFO, m -> "----------------------START-------------------------")
 							.log(LoggingHandler.Level.INFO, m -> "WebClient GET Request (start of reactorContext)")
+							
 							.handle(WebFlux.outboundGateway(ECHO_GET, webClient)
 										.httpMethod(HttpMethod.GET)
 										.expectedResponseType(String.class),
 									ec -> ec.customizeMonoReply((message, mono) -> mono.contextCapture()))
+							.channel(new ExecutorSubscribableChannel())
+							
+							// induced exception
+							.transform(Message.class, m -> {
+								throw new RuntimeException("Induced");
+							})
+							
 							.log(LoggingHandler.Level.INFO, m -> "WebClient Response (with diferent traceId) in Imperative: " + m.getPayload())
 							.log(LoggingHandler.Level.INFO, m -> "---------------------END-----------------------------")
 							.channel(NULL_CHANNEL_BEAN_NAME)
